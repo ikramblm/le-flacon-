@@ -1,0 +1,28 @@
+name: le_flacon
+description: Gestion de parfumerie — recettes, bouteilles, ventes, charges, clients, fournisseurs (reconstitué depuis l'app AppSheet "Le Flacon").
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  sqflite: ^2.3.3
+  path: ^1.9.0
+  path_provider: ^2.1.4
+  intl: ^0.19.0
+  url_launcher: ^6.3.0
+  image_picker: ^1.1.2
+  crypto: ^3.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
