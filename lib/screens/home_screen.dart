@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _Tile(
         'Vendre',
         Icons.sell,
-        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EntityFormScreen(schema: venteSchema)))
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => EntityFormScreen(schema: venteSchema)))
             .then((_) => _refresh()),
       ),
       _Tile('Recette', Icons.menu_book, () => _openList(context, recetteSchema)),
@@ -74,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.add_shopping_cart),
             tooltip: 'Ajouter une charge',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EntityFormScreen(schema: chargesSchema)))
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>  EntityFormScreen(schema: chargesSchema)))
                 .then((_) => _refresh()),
           ),
         ],
