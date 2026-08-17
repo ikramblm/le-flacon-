@@ -68,7 +68,7 @@ class AppDrawer extends StatelessWidget {
               title: const Text('Vendre'),
               onTap: () {
                 Navigator.of(context).pop();
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EntityFormScreen(schema: venteSchema)));
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => EntityFormScreen(schema: venteSchema)));
               },
             ),
             for (final schema in drawerSchemas)
