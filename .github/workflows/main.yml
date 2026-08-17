@@ -19,7 +19,7 @@ jobs:
       - name: Ensure platform folders exist
         run: |
           if [ ! -d "android" ]; then
-            flutter create --platforms=android .
+            flutter create --platforms=android --project-name le_flacon --org com.leflacon .
           fi
 
       - name: Install dependencies
