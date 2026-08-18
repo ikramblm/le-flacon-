@@ -16,12 +16,22 @@ final TableSchema utilisateursSchema = TableSchema(
   label: 'Utilisateurs',
   primaryKey: 'id',
   useSequentialId: true,
-  displayField: 'utilisateur',
+  displayField: 'telephone',
   showInDrawer: false,
   iconName: 'person',
   fields: [
-    FieldDef(name: 'utilisateur', label: "Nom d'utilisateur", type: FieldType.text, required: true),
-    FieldDef(name: 'mot_de_passe', label: 'Mot de passe', type: FieldType.text, required: true),
+    // Legacy field kept only for database migration compatibility.
+    // Authentication now uses telephone exclusively.
+    FieldDef(name: 'utilisateur', label: "Ancien nom d'utilisateur", type: FieldType.text, required: false, showInList: false),
+    FieldDef(name: 'telephone', label: 'Téléphone', type: FieldType.phone, required: true),
+    FieldDef(name: 'mot_de_passe', label: 'Mot de passe', type: FieldType.text, required: true, showInList: false),
+    FieldDef(
+      name: 'role',
+      label: 'Rôle',
+      type: FieldType.enumType,
+      required: true,
+      enumValues: ['admin', 'user'],
+    ),
   ],
 );
 

@@ -19,5 +19,7 @@ class Session extends ChangeNotifier {
   }
 
   String? get currentUserId => currentUser?['id']?.toString();
-  String get currentUserName => currentUser?['utilisateur']?.toString() ?? '';
+  String get currentUserPhone => currentUser?['telephone']?.toString() ?? '';
+  String get currentUserRole => currentUser?['role']?.toString() ?? 'user';
+  bool get isAdmin => currentUserRole == 'admin';
 }

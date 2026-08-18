@@ -5,6 +5,7 @@ import '../screens/entity_form_screen.dart';
 import '../screens/entity_list_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/user_management_screen.dart';
 
 IconData iconForName(String name) {
   switch (name) {
@@ -80,18 +81,34 @@ class AppDrawer extends StatelessWidget {
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => EntityListScreen(schema: schema)));
                 },
               ),
+            if (Session.instance.isAdmin) ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings_outlined),
+                title: const Text('Gestion des utilisateurs'),
+                subtitle: const Text('Administrateurs uniquement'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const UserManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
             const Divider(),
             ListTile(
               leading: const Icon(Icons.account_circle_outlined),
               title: const Text('Compte'),
-              subtitle: Text(Session.instance.currentUserName),
+              subtitle: Text(Session.instance.currentUserPhone),
               onTap: () {
                 Navigator.of(context).pop();
                 showDialog(
                   context: context,
                   builder: (_) => AlertDialog(
                     title: const Text('Compte'),
-                    content: Text('Connecté en tant que ${Session.instance.currentUserName}'),
+                    content: Text('Connecté en tant que ${Session.instance.currentUserPhone}'),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
                       FilledButton(
