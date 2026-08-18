@@ -5,10 +5,8 @@ import '../models/schema.dart';
 import '../models/schemas_data.dart';
 
 /// Local SQLite database for Le Flacon.
-///
-/// There is intentionally no demo administrator account. On a fresh
-/// installation, the first account created through the login screen becomes
-/// the administrator. Every later account is a normal user.
+/// No demo administrator is created. The first account created in the login
+/// screen becomes admin; later accounts are users.
 class DatabaseHelper {
   DatabaseHelper._();
   static final DatabaseHelper instance = DatabaseHelper._();
@@ -24,38 +22,33 @@ class DatabaseHelper {
     final path = p.join(dir.path, 'le_flacon.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         for (final schema in allSchemas.values) {
           await db.execute(_createTableSql(schema));
         }
-        // No demo/default account is inserted.
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute(
-            "ALTER TABLE utilisateurs ADD COLUMN role TEXT NOT NULL DEFAULT 'user'",
-          );
+        // Make migrations resilient even if an earlier development build
+        // reported a version without actually having all new columns.
+        await _ensureColumn(db, 'utilisateurs', 'role', "TEXT NOT NULL DEFAULT 'user'");
+        await _ensureColumn(db, 'utilisateurs', 'telephone', 'TEXT');
 
-          // Remove the old demo administrator from previous builds.
-          await db.delete(
-            'utilisateurs',
-            where: 'utilisateur = ?',
-            whereArgs: ['admin'],
-          );
-        }
-
-        if (oldVersion < 3) {
-          // Authentication is now phone-number only. Keep the legacy
-          // username column for SQLite compatibility, but clear old login
-          // accounts so the owner can create a fresh phone-based admin.
-          await db.execute(
-            "ALTER TABLE utilisateurs ADD COLUMN telephone TEXT",
-          );
+        // Remove legacy/demo login accounts. The owner creates a fresh
+        // phone-based admin from the login screen.
+        if (oldVersion < 4) {
           await db.delete('utilisateurs');
         }
       },
     );
+  }
+
+  Future<void> _ensureColumn(Database db, String table, String column, String definition) async {
+    final info = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = info.any((row) => row['name']?.toString() == column);
+    if (!exists) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+    }
   }
 
   String _createTableSql(TableSchema schema) {

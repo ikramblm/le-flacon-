@@ -113,6 +113,13 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Erreur de connexion à la base de données. Veuillez réessayer.';
+        });
+      }
+      debugPrint('Login error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
