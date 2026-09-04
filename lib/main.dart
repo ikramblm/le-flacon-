@@ -10,26 +10,13 @@ void main() {
   runApp(const LeFlaconApp());
 }
 
-class LeFlaconApp extends StatelessWidget {
+class LeFlaconApp extends StatefulWidget {
   const LeFlaconApp({super.key});
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Le Flacon',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      home: const _AppRoot(),
-    );
-  }
+  State<LeFlaconApp> createState() => _LeFlaconAppState();
 }
 
-class _AppRoot extends StatefulWidget {
-  const _AppRoot();
-  @override
-  State<_AppRoot> createState() => _AppRootState();
-}
-
-class _AppRootState extends State<_AppRoot> {
+class _LeFlaconAppState extends State<LeFlaconApp> {
   Repository? _repo;
 
   @override
@@ -46,8 +33,19 @@ class _AppRootState extends State<_AppRoot> {
   @override
   Widget build(BuildContext context) {
     if (_repo == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
     }
-    return RepositoryScope(repository: _repo!, child: const LoginScreen());
+    return RepositoryScope(
+      repository: _repo!,
+      child: MaterialApp(
+        title: 'Le Flacon',
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(),
+        home: const LoginScreen(),
+      ),
+    );
   }
 }
