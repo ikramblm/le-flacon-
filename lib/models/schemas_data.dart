@@ -101,6 +101,7 @@ final TableSchema parfumsSchema = TableSchema(
     FieldDef(name: 'marque', label: 'Marque', type: FieldType.text, showInList: true),
     FieldDef(name: 'prix_achat_ml', label: "Prix d'achat / ml", type: FieldType.price),
     FieldDef(name: 'prix_vente_ml', label: 'Prix de vente / ml', type: FieldType.price, showInList: true),
+    FieldDef(name: 'image', label: 'Image', type: FieldType.photo),
     FieldDef(name: 'utilisateur_id', label: 'Utilisateur', type: FieldType.ref, refTable: 'utilisateurs'),
   ],
 );
@@ -121,6 +122,7 @@ final TableSchema bouteillesSchema = TableSchema(
     FieldDef(name: 'prix_achat', label: "Prix d'achat", type: FieldType.price),
     FieldDef(name: 'prix_vente', label: 'Prix de vente', type: FieldType.price, showInList: true),
     FieldDef(name: 'couleur', label: 'Couleur', type: FieldType.text),
+    FieldDef(name: 'image', label: 'Image', type: FieldType.photo),
     FieldDef(name: 'utilisateur_id', label: 'Utilisateur', type: FieldType.ref, refTable: 'utilisateurs'),
   ],
 );
@@ -213,7 +215,10 @@ final TableSchema venteSchema = TableSchema(
   displayField: 'id',
   allowAdd: false,
   iconName: 'point_of_sale',
-  titleBuilder: (r) => 'Vente ${r['id']}',
+  titleBuilder: (r) {
+    final client = (r['client_id_display'] ?? '').toString();
+    return client.isNotEmpty ? client : 'Vente ${r['id']}';
+  },
   fields: [
     FieldDef(name: 'client_id', label: 'Client', type: FieldType.ref, refTable: 'clients', required: true, showInList: true),
     FieldDef(
@@ -249,25 +254,42 @@ final TableSchema venteSchema = TableSchema(
   ],
   recompute: (values, repo) async {
     final updates = <String, dynamic>{};
+    double bouteillePrice = 0;
     final bouteilleId = values['bouteille_id'] as String?;
     if (bouteilleId != null && bouteilleId.isNotEmpty) {
       final b = await repo.getById(bouteillesSchema, bouteilleId);
       updates['capacite_bouteille'] = _toDouble(b?['capacite']);
+      bouteillePrice = _toDouble(b?['prix_vente']);
     }
+    double productPrice = 0;
     final type = values['type_produit'];
     if (type == 'Recette simple') {
       final rid = values['recette_id'] as String?;
       if (rid != null && rid.isNotEmpty) {
         final r = await repo.getById(recetteSchema, rid);
         updates['volume_recette'] = _toDouble(r?['volume_total']);
+        productPrice = _toDouble(r?['prix_total_vente']);
       }
     } else if (type == 'Mélange personnalisé') {
       final mid = values['melange_id'] as String?;
       if (mid != null && mid.isNotEmpty) {
         final m = await repo.getById(melangesSchema, mid);
         updates['volume_recette'] = _toDouble(m?['volume_total']);
+        productPrice = _toDouble(m?['prix_total']);
       }
     }
+
+    // Total defaults to Bouteille + Recette/Mélange price, but stays
+    // editable: once the user types a different value, further changes
+    // here stop overwriting it (tracked via the private _suggested_total
+    // key, which is never persisted — _save only reads schema fields).
+    final suggestedTotal = bouteillePrice + productPrice;
+    final currentTotal = _toDouble(values['total']);
+    final lastSuggested = _toDouble(values['_suggested_total']);
+    if (currentTotal == 0 || currentTotal == lastSuggested) {
+      updates['total'] = suggestedTotal;
+    }
+    updates['_suggested_total'] = suggestedTotal;
     return updates;
   },
 );

@@ -21,17 +21,14 @@ class Repository {
     return db.query(schema.tableName, orderBy: _defaultOrder(schema));
   }
 
-  /// Same as getAll but LEFT JOINs every ref field so the caller gets a
-  /// human-readable "<field>_display" column alongside each raw id.
-  Future<List<Map<String, dynamic>>> getEnriched(TableSchema schema) async {
-    final refs = schema.refFields;
-    if (refs.isEmpty) {
-      return db.query(schema.tableName, orderBy: _defaultOrder(schema));
-    }
+  /// SELECT t.* plus, for every ref field, a LEFT JOINed "<field>_display"
+  /// column holding the referenced record's display name — so every screen
+  /// that reads through this can show "Amine Belkacem" instead of a raw id.
+  String _enrichedSelect(TableSchema schema) {
     final select = StringBuffer('SELECT t.*');
     final joins = StringBuffer();
     var i = 0;
-    for (final f in refs) {
+    for (final f in schema.refFields) {
       final refSchema = allSchemas[f.refTable];
       if (refSchema == null) continue;
       final alias = 'r$i';
@@ -41,16 +38,28 @@ class Repository {
     }
     select.write(' FROM ${schema.tableName} t');
     select.write(joins.toString());
+    return select.toString();
+  }
+
+  /// Same as getAll but LEFT JOINs every ref field so the caller gets a
+  /// human-readable "<field>_display" column alongside each raw id.
+  Future<List<Map<String, dynamic>>> getEnriched(TableSchema schema) async {
+    if (schema.refFields.isEmpty) {
+      return db.query(schema.tableName, orderBy: _defaultOrder(schema));
+    }
     final orderCol = (schema.tableName == 'vente' || schema.tableName == 'charges' || schema.tableName == 'inventaires')
         ? 't.date DESC'
         : 't.${schema.displayField}';
-    select.write(' ORDER BY $orderCol');
-    return db.rawQuery(select.toString());
+    return db.rawQuery('${_enrichedSelect(schema)} ORDER BY $orderCol');
   }
 
   Future<Map<String, dynamic>?> getById(TableSchema schema, String? id) async {
     if (id == null || id.isEmpty) return null;
-    final rows = await db.query(schema.tableName, where: '${schema.primaryKey} = ?', whereArgs: [id]);
+    if (schema.refFields.isEmpty) {
+      final rows = await db.query(schema.tableName, where: '${schema.primaryKey} = ?', whereArgs: [id]);
+      return rows.isEmpty ? null : rows.first;
+    }
+    final rows = await db.rawQuery('${_enrichedSelect(schema)} WHERE t.${schema.primaryKey} = ?', [id]);
     return rows.isEmpty ? null : rows.first;
   }
 
@@ -84,13 +93,18 @@ class Repository {
     await db.delete(schema.tableName, where: '${schema.primaryKey} = ?', whereArgs: [id]);
   }
 
-  Future<List<Map<String, dynamic>>> getRelated(TableSchema childSchema, String refFieldName, String parentId) {
-    return db.query(
-      childSchema.tableName,
-      where: '$refFieldName = ?',
-      whereArgs: [parentId],
-      orderBy: (childSchema.tableName == 'vente' || childSchema.tableName == 'charges') ? 'date DESC' : null,
-    );
+  Future<List<Map<String, dynamic>>> getRelated(TableSchema childSchema, String refFieldName, String parentId) async {
+    if (childSchema.refFields.isEmpty) {
+      return db.query(
+        childSchema.tableName,
+        where: '$refFieldName = ?',
+        whereArgs: [parentId],
+        orderBy: (childSchema.tableName == 'vente' || childSchema.tableName == 'charges') ? 'date DESC' : null,
+      );
+    }
+    final orderClause =
+        (childSchema.tableName == 'vente' || childSchema.tableName == 'charges') ? ' ORDER BY t.date DESC' : '';
+    return db.rawQuery('${_enrichedSelect(childSchema)} WHERE t.$refFieldName = ?$orderClause', [parentId]);
   }
 
   Future<int> countRelated(TableSchema childSchema, String refFieldName, String parentId) async {
