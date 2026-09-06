@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/schema.dart';
 import '../services/repository.dart';
@@ -27,6 +28,38 @@ class _EntityListScreenState extends State<EntityListScreen> {
   String _titleFor(TableSchema schema, Map<String, dynamic> r) {
     if (schema.titleBuilder != null) return schema.titleBuilder!(r);
     return (r[schema.displayField] ?? '').toString();
+  }
+
+  /// Small thumbnail on the side of the row, for schemas that have a photo
+  /// field (Vente, Bouteilles, Parfums, Recette, Charges). Returns null for
+  /// schemas without one, so the ListTile falls back to no leading widget.
+  Widget? _thumbnailFor(TableSchema schema, Map<String, dynamic> r) {
+    FieldDef? photoField;
+    for (final f in schema.fields) {
+      if (f.type == FieldType.photo) {
+        photoField = f;
+        break;
+      }
+    }
+    if (photoField == null) return null;
+
+    final path = r[photoField.name]?.toString();
+    Widget placeholder() => Container(
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 20),
+        );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: (path != null && path.isNotEmpty)
+            ? Image.file(File(path), fit: BoxFit.cover, errorBuilder: (_, __, ___) => placeholder())
+            : placeholder(),
+      ),
+    );
   }
 
   @override
@@ -98,6 +131,7 @@ class _EntityListScreenState extends State<EntityListScreen> {
                       subtitleParts.add('${f.label}: $display');
                     }
                     return ListTile(
+                      leading: _thumbnailFor(schema, r),
                       title: Text(_titleFor(schema, r)),
                       subtitle: subtitleParts.isEmpty ? null : Text(subtitleParts.join('   •   ')),
                       onTap: () {
