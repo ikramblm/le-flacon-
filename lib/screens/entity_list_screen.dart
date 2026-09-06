@@ -47,14 +47,14 @@ class _EntityListScreenState extends State<EntityListScreen> {
     Widget placeholder() => Container(
           color: Colors.grey.shade200,
           alignment: Alignment.center,
-          child: Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 36),
+          child: Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 28),
         );
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: SizedBox(
-        width: 84,
-        height: 84,
+        width: 64,
+        height: 64,
         child: (path != null && path.isNotEmpty)
             ? Image.file(File(path), fit: BoxFit.cover, errorBuilder: (_, __, ___) => placeholder())
             : placeholder(),
