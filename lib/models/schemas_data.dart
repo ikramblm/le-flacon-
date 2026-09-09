@@ -220,7 +220,7 @@ final TableSchema venteSchema = TableSchema(
     return client.isNotEmpty ? client : 'Vente ${r['id']}';
   },
   fields: [
-    FieldDef(name: 'client_id', label: 'Client', type: FieldType.ref, refTable: 'clients', required: true, showInList: true),
+    FieldDef(name: 'client_id', label: 'Client', type: FieldType.ref, refTable: 'clients', showInList: true),
     FieldDef(
       name: 'type_produit',
       label: 'Type de produit',
@@ -249,7 +249,6 @@ final TableSchema venteSchema = TableSchema(
     FieldDef(name: 'capacite_bouteille', label: 'Capacité bouteille (ml)', type: FieldType.number, readOnly: true),
     FieldDef(name: 'date', label: 'Date', type: FieldType.dateTime, showInList: true),
     FieldDef(name: 'total', label: 'Total', type: FieldType.price, showInList: true),
-    FieldDef(name: 'image', label: 'Image', type: FieldType.photo),
     FieldDef(name: 'utilisateur_id', label: 'Utilisateur', type: FieldType.ref, refTable: 'utilisateurs'),
   ],
   recompute: (values, repo) async {

@@ -45,7 +45,7 @@ class _EntityDetailScreenState extends State<EntityDetailScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => EntityFormScreen(schema: schema, existing: rec)),
               );
-              if (result == true) _reload();
+              if (result != null) _reload();
             },
           ),
           IconButton(
@@ -217,7 +217,7 @@ class _RelatedSectionState extends State<_RelatedSection> {
                         ),
                       ),
                     );
-                    if (result == true) {
+                    if (result != null) {
                       setState(() => _future = null);
                       widget.onChanged();
                     }

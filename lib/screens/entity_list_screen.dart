@@ -78,7 +78,7 @@ class _EntityListScreenState extends State<EntityListScreen> {
                   context,
                   MaterialPageRoute(builder: (_) => EntityFormScreen(schema: schema)),
                 );
-                if (result == true) _reload();
+                if (result != null) _reload();
               },
               child: const Icon(Icons.add),
             )

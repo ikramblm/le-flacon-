@@ -1,6 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../models/schema.dart';
 import '../models/schemas_data.dart';
 import '../services/repository.dart';
@@ -30,6 +34,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
   bool _optionsLoaded = false;
   bool _optionsLoading = false;
   bool _saving = false;
+  bool _generatingInvoice = false;
 
   @override
   void initState() {
@@ -117,17 +122,107 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
         }
         data[f.name] = v;
       }
+      final String savedId;
       if (widget.existing != null) {
-        final id = widget.existing![widget.schema.primaryKey].toString();
-        await repo.updateRecord(widget.schema, id, data);
+        savedId = widget.existing![widget.schema.primaryKey].toString();
+        await repo.updateRecord(widget.schema, savedId, data);
       } else {
-        final id = await repo.generateId(widget.schema);
-        data[widget.schema.primaryKey] = id;
+        savedId = await repo.generateId(widget.schema);
+        data[widget.schema.primaryKey] = savedId;
         await repo.insertRecord(widget.schema, data);
       }
-      if (mounted) Navigator.of(context).pop(true);
+      // Pops the saved record's id (rather than a bare `true`) so a caller
+      // that opened this form to create a new ref on the fly — see the
+      // "+ Nouveau ..." option below — can select it immediately.
+      if (mounted) Navigator.of(context).pop(savedId);
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Display name of whatever the ref field [fieldName] currently points
+  /// to, looked up from the already-loaded options for that field.
+  String _refDisplayName(String fieldName) {
+    final id = _values[fieldName]?.toString();
+    if (id == null || id.isEmpty) return '—';
+    final f = widget.schema.fieldByName(fieldName);
+    final refTable = f?.refTable;
+    if (refTable == null) return '—';
+    final refSchema = allSchemasOf(refTable);
+    if (refSchema == null) return '—';
+    final options = _refOptions[fieldName] ?? const [];
+    final matches = options.where((o) => o[refSchema.primaryKey].toString() == id);
+    if (matches.isEmpty) return '—';
+    return (matches.first[refSchema.displayField] ?? '—').toString();
+  }
+
+  pw.Widget _invoiceCell(String text, {bool bold = false}) => pw.Padding(
+        padding: const pw.EdgeInsets.all(6),
+        child: pw.Text(text, style: pw.TextStyle(fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+      );
+
+  Future<Uint8List> _buildInvoicePdf() async {
+    final doc = pw.Document();
+    final client = _refDisplayName('client_id');
+    final bouteille = _refDisplayName('bouteille_id');
+    final type = _values['type_produit']?.toString() ?? '';
+    final produit = type == 'Mélange personnalisé' ? _refDisplayName('melange_id') : _refDisplayName('recette_id');
+    final dateValue = _values['date'];
+    final date = (dateValue == null || dateValue.toString().isEmpty) ? '—' : formatDateTime(dateValue);
+    final total = formatPrice(_values['total']);
+    final invoiceNumber = (widget.existing?[widget.schema.primaryKey] ?? '—').toString();
+
+    doc.addPage(
+      pw.Page(
+        build: (context) => pw.Padding(
+          padding: const pw.EdgeInsets.all(32),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Le Flacon', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.Text('Gestion de parfumerie', style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700)),
+              pw.SizedBox(height: 24),
+              pw.Text('Facture', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.Text('N° $invoiceNumber'),
+              pw.SizedBox(height: 16),
+              pw.Text('Client : $client'),
+              pw.Text('Date : $date'),
+              pw.SizedBox(height: 24),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey400),
+                columnWidths: const {0: pw.FlexColumnWidth(3), 1: pw.FlexColumnWidth(2)},
+                children: [
+                  pw.TableRow(children: [_invoiceCell('Description', bold: true), _invoiceCell('Détail', bold: true)]),
+                  pw.TableRow(children: [_invoiceCell('Produit'), _invoiceCell(produit)]),
+                  pw.TableRow(children: [_invoiceCell('Bouteille'), _invoiceCell(bouteille)]),
+                ],
+              ),
+              pw.SizedBox(height: 24),
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text('Total : $total', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<void> _shareInvoice() async {
+    setState(() => _generatingInvoice = true);
+    try {
+      final bytes = await _buildInvoicePdf();
+      await Printing.layoutPdf(onLayout: (format) async => bytes, name: 'facture_le_flacon.pdf');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de générer la facture.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _generatingInvoice = false);
     }
   }
 
@@ -155,6 +250,16 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
                       padding: const EdgeInsets.only(bottom: 14),
                       child: _buildField(context, repo, f),
                     ),
+                  if (widget.schema.tableName == 'vente') ...[
+                    OutlinedButton.icon(
+                      icon: _generatingInvoice
+                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.picture_as_pdf_outlined),
+                      label: const Text('Générer la facture (PDF)'),
+                      onPressed: _generatingInvoice ? null : _shareInvoice,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: _saving ? null : () => _save(repo),
@@ -240,6 +345,7 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
           },
         );
       case FieldType.ref:
+        const newOptionValue = '__new__';
         final options = _refOptions[f.name] ?? [];
         final refSchema = allSchemasOf(f.refTable!)!;
         final currentId = _values[f.name]?.toString();
@@ -248,6 +354,20 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
           value: validValue,
           decoration: InputDecoration(labelText: f.label),
           items: [
+            DropdownMenuItem<String?>(
+              value: newOptionValue,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_circle_outline, size: 18, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Nouveau ${refSchema.label.toLowerCase()}',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
             if (!f.required) const DropdownMenuItem<String?>(value: null, child: Text('— Aucun —')),
             ...options.map(
               (o) => DropdownMenuItem<String?>(
@@ -257,7 +377,22 @@ class _EntityFormScreenState extends State<EntityFormScreen> {
             ),
           ],
           validator: (v) => f.required && (v == null || v.isEmpty) ? 'Champ requis' : null,
-          onChanged: (v) {
+          onChanged: (v) async {
+            if (v == newOptionValue) {
+              final newId = await Navigator.push<String?>(
+                context,
+                MaterialPageRoute(builder: (_) => EntityFormScreen(schema: refSchema)),
+              );
+              if (newId == null) return;
+              final rows = await repo.getAll(refSchema);
+              if (!mounted) return;
+              setState(() {
+                _refOptions[f.name] = rows;
+                _values[f.name] = newId;
+              });
+              _onFieldChanged(repo);
+              return;
+            }
             setState(() => _values[f.name] = v);
             _onFieldChanged(repo);
           },
