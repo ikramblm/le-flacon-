@@ -6,11 +6,11 @@ import '../services/repository_scope.dart';
 import '../services/session.dart';
 import 'home_screen.dart';
 
-/// Login and account creation using a phone number.
+/// Login with a phone number + password.
 ///
-/// The first account created when there is no administrator is automatically
-/// an administrator. All later accounts are normal users. Administrators can
-/// create or promote additional administrators from Gestion des utilisateurs.
+/// There is no self-registration here: the administrator account is fixed
+/// (seeded by DatabaseHelper) and every other account must be created by an
+/// administrator from "Gestion des utilisateurs" after they log in.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -22,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  bool _createMode = false;
   bool _loading = false;
   String? _error;
 
@@ -70,44 +69,13 @@ class _LoginScreenState extends State<LoginScreen> {
           .where((u) => _normalizePhone(u['telephone']?.toString() ?? '') == phone)
           .toList();
 
-      if (_createMode) {
-        if (match.isNotEmpty) {
-          setState(() => _error = 'Ce numéro de téléphone est déjà utilisé.');
-          return;
-        }
-
-        final hasAdmin = users.any((u) => u['role']?.toString() == 'admin');
-        final createAsAdmin = !hasAdmin;
-        final id = await repo.generateId(utilisateursSchema);
-        final user = {
-          'id': id,
-          'telephone': phone,
-          'mot_de_passe': hashed,
-          'role': createAsAdmin ? 'admin' : 'user',
-        };
-
-        await repo.insertRecord(utilisateursSchema, user);
-        Session.instance.login(user);
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              createAsAdmin
-                  ? 'Compte administrateur créé avec succès.'
-                  : 'Compte utilisateur créé avec succès.',
-            ),
-          ),
-        );
-      } else {
-        if (match.isEmpty || match.first['mot_de_passe'] != hashed) {
-          setState(() => _error = 'Numéro de téléphone ou mot de passe incorrect.');
-          return;
-        }
-
-        final user = Map<String, dynamic>.from(match.first);
-        Session.instance.login(user);
+      if (match.isEmpty || match.first['mot_de_passe'] != hashed) {
+        setState(() => _error = 'Numéro de téléphone ou mot de passe incorrect.');
+        return;
       }
+
+      final user = Map<String, dynamic>.from(match.first);
+      Session.instance.login(user);
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -127,8 +95,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isCreate = _createMode;
-
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -205,31 +171,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : Text(isCreate ? 'Créer le compte' : 'Se connecter'),
+                            : const Text('Se connecter'),
                       ),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _createMode = !_createMode;
-                          _error = null;
-                        });
-                      },
-                      child: Text(
-                        isCreate
-                            ? "J'ai déjà un compte"
-                            : 'Créer un nouveau compte utilisateur',
-                      ),
-                    ),
-                    if (isCreate) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Si aucun administrateur n’existe encore, ce compte '
-                        'sera administrateur. Sinon, il sera utilisateur.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
                   ],
                 ),
               ),
