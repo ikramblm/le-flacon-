@@ -103,19 +103,23 @@ class AppDrawer extends StatelessWidget {
               title: const Text('Compte'),
               subtitle: Text(Session.instance.currentUserPhone),
               onTap: () {
-                Navigator.of(context).pop();
+                // Capture the navigator BEFORE closing the drawer: after the
+                // drawer is popped, this `context` is deactivated and using
+                // it for navigation silently fails.
+                final navigator = Navigator.of(context);
+                navigator.pop();
                 showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
+                  context: navigator.context,
+                  builder: (dialogContext) => AlertDialog(
                     title: const Text('Compte'),
                     content: Text('Connecté en tant que ${Session.instance.currentUserPhone}'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
+                      TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Fermer')),
                       FilledButton(
                         onPressed: () {
                           Session.instance.logout();
-                          Navigator.pop(context);
-                          Navigator.of(context).pushAndRemoveUntil(
+                          // Removes every route (including this dialog).
+                          navigator.pushAndRemoveUntil(
                             MaterialPageRoute(builder: (_) => const LoginScreen()),
                             (route) => false,
                           );
